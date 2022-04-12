@@ -1,0 +1,57 @@
+import requests
+from bs4 import BeautifulSoup
+from urllib.request import Request
+from urllib.request import urlopen
+import pandas as pd
+
+
+class find_missing_image():
+    
+    def __init__(self, url, url2):
+        self.url = url
+        self.url2 = url2
+        self.mimage = "//onlinestore.wsimg.com/assets/noimage/product-5fec99477aebb10bac85d82665ec1497de4536cda3279e59089555c45cf589fa.png"
+
+    def find_product_pages(self):
+        req = Request(self.url2, headers={'User-Agent': 'Mozilla/5.0'})
+        webpage = urlopen(req).read()
+        soup = BeautifulSoup(webpage, 'html.parser')
+        total_items = soup.find('ul', class_='pagination pull-right').text
+        nums = total_items.replace("\n", " ")
+        res = [int(i) for i in nums.split() if i.isdigit()]
+        num_of_product_pages = res[-1]
+        return num_of_product_pages
+    
+    def find_missing_links(self,nop):
+        
+        base_url = "https://yoshops.com"
+        final_links= []
+        for i in range(1, 12):
+            new_url = self.url + str(i)
+            req = Request(new_url, headers={'User-Agent': 'Mozilla/5.0'})
+            webpage = urlopen(req).read()
+            soup = BeautifulSoup(webpage, 'html.parser')
+            table = soup.find('div', class_='products')
+            lists = table.find_all('div', class_="col-sm-3 col-xs-6")
+            hyp_link = []
+            for row in lists:
+                link_ = str(row)
+                if self.mimage in link_:
+                    #hyp1 = search(t, "href=", '<div class="product-thumb">',1,1)
+                    ind1= link_.index("href=")
+                    ind2 = link_.index('<div class="product-thumb">')
+                    hyp1 = link_[ind1 + len("href=") + 1: ind2 - 1]
+                    hyp = hyp1[:-2]
+                    hyp3 = base_url+str(hyp)
+                    #print(hyp3)
+                    final_links.append(hyp3)
+                    
+
+        return final_links
+
+fmi  = find_missing_image("https://yoshops.com/products?page=","https://yoshops.com/products")
+product_pages = fmi.find_product_pages()
+missing_images = fmi.find_missing_links(product_pages)
+missing_images_dataframe = pd.DataFrame(missing_images, columns = ["product_link"])
+file_name = '/Users/hritvikgupta/Documents/yoshops_missing_images.xlsx'
+missing_images_dataframe.to_excel(file_name)
